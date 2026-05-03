@@ -1,5 +1,5 @@
 /**
- * Image Tile Shifter — p5.js instance mode
+ * Tile Shifter — p5.js instance mode
  * composeTiles() composes for a future second layer.
  */
 (function () {
