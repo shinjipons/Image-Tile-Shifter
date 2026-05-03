@@ -1,9 +1,9 @@
 /**
  * Image Tile Shifter — p5.js instance mode
- * shuffleTiles() composes for a future second layer.
+ * composeTiles() composes for a future second layer.
  */
 (function () {
-  const MAX_GRID = 200;
+  const MAX_GRID = 400;
   const MIN_GRID = 1;
   const PREVIEW_MAX_EDGE = 1400;
   /** ~80% black neutral surround (#333), matches --canvas-neutral-bg */
@@ -52,6 +52,13 @@
     return arr;
   }
 
+  /** Identity map: output slot i shows source tile i (original image layout). */
+  function identityPermutation(length) {
+    const arr = new Array(length);
+    for (let i = 0; i < length; i++) arr[i] = i;
+    return arr;
+  }
+
   /** Integer axis splits so segments partition `total` exactly (no fractional seams). */
   function axisBoundaries(total, parts) {
     const b = new Array(parts + 1);
@@ -70,24 +77,22 @@
   }
 
   /**
-   * Draw shuffled tiles into a new p5.Graphics buffer.
-   * Output size defaults to source dimensions (for export / composition).
+   * Draw tiles into a p5.Graphics buffer using an explicit slot permutation.
    *
    * @param {*} p - p5 instance
    * @param {p5.Image|p5.Graphics} source
    * @param {number} rows
    * @param {number} cols
-   * @param {string|number} seed
-   * @param {number} [outW]
-   * @param {number} [outH]
+   * @param {number[]} permutation - perm[i] = source tile index placed at output slot i
+   * @param {number} outW
+   * @param {number} outH
    * @returns {p5.Graphics}
    */
-  function shuffleTiles(p, source, rows, cols, seed, outW, outH) {
+  function composeTiles(p, source, rows, cols, permutation, outW, outH) {
     const srcW = source.width;
     const srcH = source.height;
-    const w = Math.round(outW ?? srcW);
-    const h = Math.round(outH ?? srcH);
-    const perm = buildPermutation(rows, cols, seed);
+    const w = Math.round(outW);
+    const h = Math.round(outH);
     const out = p.createGraphics(w, h);
     out.pixelDensity(1);
     setNearestNeighborSampling(out.drawingContext);
@@ -98,7 +103,7 @@
     const yDst = axisBoundaries(h, rows);
 
     for (let i = 0; i < rows * cols; i++) {
-      const k = perm[i];
+      const k = permutation[i];
       const srcCol = k % cols;
       const srcRow = (k / cols) | 0;
       const dstCol = i % cols;
@@ -113,6 +118,90 @@
       const dw = xDst[dstCol + 1] - dx;
       const dy = yDst[dstRow];
       const dh = yDst[dstRow + 1] - dy;
+
+      out.image(source, dx, dy, dw, dh, sx, sy, sw, sh);
+    }
+
+    return out;
+  }
+
+  /**
+   * Grid cells stay fixed on the canvas; the source rectangle sampled into each cell
+   * interpolates from identity tile i to shuffled tile perm[i] as t goes 0 → 1.
+   * @param {number} t - 0 = original image, 1 = fully shuffled content per cell
+   */
+  function composeShuffleMorph(p, source, rows, cols, seed, outW, outH, t) {
+    const w = Math.round(outW);
+    const h = Math.round(outH);
+    const tt = Math.min(1, Math.max(0, t));
+    const n = rows * cols;
+
+    if (tt <= 0) {
+      return composeTiles(
+        p,
+        source,
+        rows,
+        cols,
+        identityPermutation(n),
+        w,
+        h
+      );
+    }
+    if (tt >= 1) {
+      return composeTiles(
+        p,
+        source,
+        rows,
+        cols,
+        buildPermutation(rows, cols, seed),
+        w,
+        h
+      );
+    }
+
+    const perm = buildPermutation(rows, cols, seed);
+
+    const srcW = source.width;
+    const srcH = source.height;
+    const xSrc = axisBoundaries(srcW, cols);
+    const ySrc = axisBoundaries(srcH, rows);
+    const xDst = axisBoundaries(w, cols);
+    const yDst = axisBoundaries(h, rows);
+
+    function srcRectForTile(tileIndex) {
+      const srcCol = tileIndex % cols;
+      const srcRow = (tileIndex / cols) | 0;
+      const sx = xSrc[srcCol];
+      const sw = xSrc[srcCol + 1] - sx;
+      const sy = ySrc[srcRow];
+      const sh = ySrc[srcRow + 1] - sy;
+      return { sx, sy, sw, sh };
+    }
+
+    const out = p.createGraphics(w, h);
+    out.pixelDensity(1);
+    const ctx = out.drawingContext;
+    ctx.imageSmoothingEnabled = true;
+    if ("mozImageSmoothingEnabled" in ctx) ctx.mozImageSmoothingEnabled = true;
+    if ("webkitImageSmoothingEnabled" in ctx)
+      ctx.webkitImageSmoothingEnabled = true;
+
+    out.background(CANVAS_NEUTRAL_BG);
+
+    for (let i = 0; i < n; i++) {
+      const dstCol = i % cols;
+      const dstRow = (i / cols) | 0;
+      const dx = xDst[dstCol];
+      const dw = xDst[dstCol + 1] - dx;
+      const dy = yDst[dstRow];
+      const dh = yDst[dstRow + 1] - dy;
+
+      const s0 = srcRectForTile(i);
+      const s1 = srcRectForTile(perm[i]);
+      const sx = s0.sx + (s1.sx - s0.sx) * tt;
+      const sy = s0.sy + (s1.sy - s0.sy) * tt;
+      const sw = s0.sw + (s1.sw - s0.sw) * tt;
+      const sh = s0.sh + (s1.sh - s0.sh) * tt;
 
       out.image(source, dx, dy, dw, dh, sx, sy, sw, sh);
     }
@@ -164,6 +253,8 @@
       seedRandom: null,
       gridLinkFree: null,
       colsFollowerWrap: null,
+      shuffleBlend: null,
+      shuffleBlendReadout: null,
       download: null,
       metaStatus: null,
       metaDims: null,
@@ -190,6 +281,8 @@
       els.seedRandom = document.getElementById("seed-random");
       els.gridLinkFree = document.getElementById("grid-link-free");
       els.colsFollowerWrap = document.getElementById("cols-follower-wrap");
+      els.shuffleBlend = document.getElementById("shuffle-blend");
+      els.shuffleBlendReadout = document.getElementById("shuffle-blend-readout");
       els.download = document.getElementById("download");
       els.metaStatus = document.getElementById("meta-status");
       els.metaDims = document.getElementById("meta-dims");
@@ -202,6 +295,7 @@
       els.colsSlider.addEventListener("input", onColsSliderInput);
       els.seedRandom.addEventListener("click", randomizeSeed);
       els.seed.addEventListener("input", render);
+      els.shuffleBlend.addEventListener("input", onShuffleBlendInput);
       document
         .querySelectorAll('input[name="grid-link-mode"]')
         .forEach(function (radio) {
@@ -211,8 +305,27 @@
 
       updateAspectRadioAvailability();
       updateColsFollowerUi();
+      syncShuffleBlendReadout();
       setupDropTarget();
       document.addEventListener("paste", onDocumentPaste);
+    }
+
+    function readShuffleBlendT() {
+      const v = Number(els.shuffleBlend.value);
+      if (!Number.isFinite(v)) return 1;
+      return Math.min(1, Math.max(0, v / 100));
+    }
+
+    function syncShuffleBlendReadout() {
+      if (!els.shuffleBlendReadout || !els.shuffleBlend) return;
+      const pct = Math.round(Number(els.shuffleBlend.value));
+      els.shuffleBlendReadout.textContent = String(pct) + "%";
+      els.shuffleBlend.setAttribute("aria-valuenow", String(pct));
+    }
+
+    function onShuffleBlendInput() {
+      syncShuffleBlendReadout();
+      render();
     }
 
     /**
@@ -509,14 +622,15 @@
       resizeDisplayToPreview();
 
       const { rows, cols, seed } = readGrid();
-      const g = shuffleTiles(
+      const g = composeShuffleMorph(
         p,
         sourceImg,
         rows,
         cols,
         seed,
         p.width,
-        p.height
+        p.height,
+        readShuffleBlendT()
       );
       setNearestNeighborSampling(p.drawingContext);
       p.background(CANVAS_NEUTRAL_BG);
@@ -527,18 +641,22 @@
     function onDownload() {
       if (!sourceImg) return;
       const { rows, cols, seed } = readGrid();
-      const g = shuffleTiles(
+      const tMix = readShuffleBlendT();
+      const g = composeShuffleMorph(
         p,
         sourceImg,
         rows,
         cols,
         seed,
         sourceImg.width,
-        sourceImg.height
+        sourceImg.height,
+        tMix
       );
       const canvas = g.elt;
       const safeSeed = String(seed).replace(/[^\w.-]+/g, "_");
-      const filename = `shifted_${safeSeed}_${cols}x${rows}.png`;
+      const mixPct = Math.round(tMix * 100);
+      const mixSuffix = mixPct < 100 ? `_mix${mixPct}` : "";
+      const filename = `shifted_${safeSeed}_${cols}x${rows}${mixSuffix}.png`;
 
       if (canvas.toBlob) {
         canvas.toBlob(

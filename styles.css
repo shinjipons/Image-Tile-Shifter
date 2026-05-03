@@ -252,6 +252,19 @@ body {
   color: var(--text-muted);
 }
 
+.blend-readout {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  min-width: 2.75rem;
+  text-align: right;
+}
+
+.shuffle-blend-hint {
+  margin-top: 0.35rem;
+}
+
 .kbd-hint {
   display: inline-block;
   padding: 0.05rem 0.35rem;
