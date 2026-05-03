@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Image Tile Shifter</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.11.3/p5.min.js"></script>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="panel">
+        <header class="panel__header">
+          <div class="panel__brand">
+            <span class="panel__badge">Editor</span>
+            <h1>Image Tile Shifter</h1>
+          </div>
+          <p class="panel__lede">
+            Slice a grid, shuffle with a seed, export PNG — same flow as a lightweight canvas tool.
+          </p>
+        </header>
+
+        <section class="control-section">
+          <h2 class="control-section__title">Source</h2>
+          <label class="upload-zone" for="image-input">
+            <input
+              id="image-input"
+              type="file"
+              accept="image/*"
+              class="upload-zone__input"
+              aria-describedby="drop-hint"
+            />
+            <span class="upload-zone__label">Add image</span>
+            <span class="upload-zone__hint">Browse, drop on the canvas, or paste</span>
+          </label>
+          <p id="drop-hint" class="hint">
+            Drag &amp; drop on the preview, or paste an image from the clipboard (e.g.
+            <kbd class="kbd-hint">⌘</kbd><kbd class="kbd-hint">V</kbd> /
+            <kbd class="kbd-hint">Ctrl</kbd><kbd class="kbd-hint">V</kbd>) anywhere in the page.
+          </p>
+        </section>
+
+        <section class="control-section">
+          <h2 class="control-section__title">Grid</h2>
+          <fieldset class="grid-link-fieldset">
+            <legend class="grid-link-legend">Link rows / columns</legend>
+            <div class="grid-link-options">
+              <label class="grid-link-option">
+                <input
+                  id="grid-link-free"
+                  type="radio"
+                  name="grid-link-mode"
+                  value="free"
+                  checked
+                />
+                <span>Independent</span>
+              </label>
+              <label class="grid-link-option">
+                <input
+                  id="grid-link-square"
+                  type="radio"
+                  name="grid-link-mode"
+                  value="square"
+                />
+                <span>Square grid (1:1)</span>
+              </label>
+              <label class="grid-link-option" id="grid-link-aspect-label">
+                <input
+                  id="grid-link-aspect"
+                  type="radio"
+                  name="grid-link-mode"
+                  value="aspect"
+                  disabled
+                />
+                <span>Match image aspect</span>
+              </label>
+            </div>
+            <p class="hint grid-link-hint">
+              Match image sets columns from rows using the image width ÷ height so each tile is
+              roughly square.
+            </p>
+          </fieldset>
+          <div class="slider-field">
+            <div class="slider-field__row">
+              <label class="slider-field__label" for="rows-slider">Rows</label>
+              <input
+                id="rows"
+                class="input-num"
+                type="number"
+                min="1"
+                max="200"
+                value="8"
+                inputmode="numeric"
+                aria-label="Rows value"
+              />
+            </div>
+            <input
+              id="rows-slider"
+              class="range"
+              type="range"
+              min="1"
+              max="200"
+              value="8"
+              aria-valuemin="1"
+              aria-valuemax="200"
+              aria-label="Rows slider"
+            />
+          </div>
+          <div id="cols-follower-wrap" class="slider-field">
+            <div class="slider-field__row">
+              <label class="slider-field__label" for="cols-slider">Columns</label>
+              <input
+                id="cols"
+                class="input-num"
+                type="number"
+                min="1"
+                max="200"
+                value="8"
+                inputmode="numeric"
+                aria-label="Columns value"
+              />
+            </div>
+            <input
+              id="cols-slider"
+              class="range"
+              type="range"
+              min="1"
+              max="200"
+              value="8"
+              aria-valuemin="1"
+              aria-valuemax="200"
+              aria-label="Columns slider"
+            />
+          </div>
+        </section>
+
+        <section class="control-section">
+          <h2 class="control-section__title">Shuffle</h2>
+          <div class="field">
+            <label class="field-label" for="seed">Seed</label>
+            <div class="seed-row">
+              <input id="seed" type="number" value="1" step="1" class="input-num input-num--grow" />
+              <button type="button" id="seed-random" class="btn btn--ghost" title="Random seed">
+                Random
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <div class="actions">
+          <button type="button" id="download" class="btn btn--primary" disabled>
+            Download PNG
+          </button>
+        </div>
+
+        <section class="meta" id="meta" aria-live="polite">
+          <p class="meta__line" id="meta-status">Load an image to begin.</p>
+          <p class="meta__line meta__line--dim" id="meta-dims"></p>
+        </section>
+      </aside>
+
+      <main class="preview" id="preview-drop-zone">
+        <div class="preview__frame">
+          <div id="sketch-host" class="preview__sketch">
+            <div id="preview-empty" class="preview-empty">
+              <span class="preview-empty__title">No image yet</span>
+              <span class="preview-empty__hint">Drop a file here or use Source → Add image</span>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script src="sketch.js"></script>
+  </body>
+</html>
