@@ -27,7 +27,7 @@ Vercel serves `index.html` at `/` automatically.
 ## Usage
 
 1. Choose or drop an image.
-2. Set **rows** and **columns** (1–400).
+2. Set **rows** and **columns** (1–200).
 3. Set **seed** (same seed + dimensions = same shuffle). Use **Random** for a new seed.
 4. **Download PNG** exports at the **original image resolution**.
 

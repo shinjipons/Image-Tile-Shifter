@@ -14,6 +14,13 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.11.3/p5.min.js"></script>
   </head>
   <body>
+    <!-- Firefox: image paste on document is unreliable without a contenteditable in the tree -->
+    <div
+      class="paste-bridge"
+      contenteditable="true"
+      tabindex="-1"
+      aria-hidden="true"
+    ></div>
     <div class="app">
       <aside class="panel">
         <header class="panel__header">
@@ -28,26 +35,38 @@
 
         <section class="control-section">
           <h2 class="control-section__title">Source</h2>
-          <label class="upload-zone" for="image-input">
+          <label class="upload-zone" id="upload-zone" for="image-input">
             <input
               id="image-input"
               type="file"
               accept="image/*"
               class="upload-zone__input"
-              aria-describedby="drop-hint"
             />
-            <span class="upload-zone__label">Add image</span>
-            <span class="upload-zone__hint">Browse, drop on the canvas, or paste</span>
+            <span class="upload-zone__empty" id="upload-zone-empty">
+              <span class="upload-zone__label">Add image</span>
+              <span class="upload-zone__hint">Browse, drop on the canvas, or paste</span>
+            </span>
+            <span class="upload-zone__loaded" id="upload-zone-loaded" hidden>
+              <span class="upload-zone__thumb-shell" aria-hidden="true">
+                <img
+                  class="upload-zone__thumb"
+                  id="upload-zone-thumb"
+                  alt=""
+                  width="48"
+                  height="48"
+                />
+              </span>
+              <span class="upload-zone__text">
+                <span class="upload-zone__label">Replace image</span>
+                <span class="upload-zone__dims" id="upload-zone-dims-image"></span>
+                <span class="upload-zone__dims" id="upload-zone-dims-tile"></span>
+              </span>
+            </span>
           </label>
-          <p id="drop-hint" class="hint">
-            Drag &amp; drop on the preview, or paste an image from the clipboard (e.g.
-            <kbd class="kbd-hint">⌘</kbd><kbd class="kbd-hint">V</kbd> /
-            <kbd class="kbd-hint">Ctrl</kbd><kbd class="kbd-hint">V</kbd>) anywhere in the page.
-          </p>
         </section>
 
         <section class="control-section">
-          <h2 class="control-section__title">Grid</h2>
+          <h2 class="control-section__title">Layer 1 — Grid</h2>
           <fieldset class="grid-link-fieldset">
             <legend class="grid-link-legend">Link rows / columns</legend>
             <div class="grid-link-options">
@@ -81,10 +100,6 @@
                 <span>Match image aspect</span>
               </label>
             </div>
-            <p class="hint grid-link-hint">
-              Match image sets columns from rows using the image width ÷ height so each tile is
-              roughly square.
-            </p>
           </fieldset>
           <div class="slider-field">
             <div class="slider-field__row">
@@ -94,7 +109,7 @@
                 class="input-num"
                 type="number"
                 min="1"
-                max="400"
+                max="200"
                 value="8"
                 inputmode="numeric"
                 aria-label="Rows value"
@@ -105,10 +120,10 @@
               class="range"
               type="range"
               min="1"
-              max="400"
+              max="200"
               value="8"
               aria-valuemin="1"
-              aria-valuemax="400"
+              aria-valuemax="200"
               aria-label="Rows slider"
             />
           </div>
@@ -120,7 +135,7 @@
                 class="input-num"
                 type="number"
                 min="1"
-                max="400"
+                max="200"
                 value="8"
                 inputmode="numeric"
                 aria-label="Columns value"
@@ -131,17 +146,17 @@
               class="range"
               type="range"
               min="1"
-              max="400"
+              max="200"
               value="8"
               aria-valuemin="1"
-              aria-valuemax="400"
+              aria-valuemax="200"
               aria-label="Columns slider"
             />
           </div>
         </section>
 
         <section class="control-section">
-          <h2 class="control-section__title">Shuffle</h2>
+          <h2 class="control-section__title">Layer 1 — Shuffle</h2>
           <div class="field">
             <label class="field-label" for="seed">Seed</label>
             <div class="seed-row">
@@ -172,16 +187,153 @@
           </div>
         </section>
 
+        <section class="control-section control-section--layer2">
+          <label class="layer2-enable">
+            <input
+              type="checkbox"
+              id="layer2-enabled"
+              aria-controls="layer2-expanded"
+              aria-expanded="false"
+            />
+            <span>Add second shuffle layer</span>
+          </label>
+          <div id="layer2-expanded" class="layer2-expanded" hidden>
+            <h2 class="control-section__title">Layer 2</h2>
+            <p class="layer2-hint hint">
+              Uses layer 1 output as its source. Grid, link mode, seed, and shuffle amount are independent.
+            </p>
+            <h3 class="control-section__subtitle">Grid</h3>
+            <fieldset class="grid-link-fieldset">
+              <legend class="grid-link-legend">Link rows / columns</legend>
+              <div class="grid-link-options">
+                <label class="grid-link-option">
+                  <input
+                    id="l2-grid-link-free"
+                    type="radio"
+                    name="grid-link-mode-l2"
+                    value="free"
+                    checked
+                  />
+                  <span>Independent</span>
+                </label>
+                <label class="grid-link-option">
+                  <input
+                    id="l2-grid-link-square"
+                    type="radio"
+                    name="grid-link-mode-l2"
+                    value="square"
+                  />
+                  <span>Square grid (1:1)</span>
+                </label>
+                <label class="grid-link-option" id="l2-grid-link-aspect-label">
+                  <input
+                    id="l2-grid-link-aspect"
+                    type="radio"
+                    name="grid-link-mode-l2"
+                    value="aspect"
+                    disabled
+                  />
+                  <span>Match image aspect</span>
+                </label>
+              </div>
+            </fieldset>
+            <div class="slider-field">
+              <div class="slider-field__row">
+                <label class="slider-field__label" for="l2-rows-slider">Rows</label>
+                <input
+                  id="l2-rows"
+                  class="input-num"
+                  type="number"
+                  min="1"
+                  max="200"
+                  value="12"
+                  inputmode="numeric"
+                  aria-label="Layer 2 rows value"
+                />
+              </div>
+              <input
+                id="l2-rows-slider"
+                class="range"
+                type="range"
+                min="1"
+                max="200"
+                value="12"
+                aria-valuemin="1"
+                aria-valuemax="200"
+                aria-label="Layer 2 rows slider"
+              />
+            </div>
+            <div id="l2-cols-follower-wrap" class="slider-field">
+              <div class="slider-field__row">
+                <label class="slider-field__label" for="l2-cols-slider">Columns</label>
+                <input
+                  id="l2-cols"
+                  class="input-num"
+                  type="number"
+                  min="1"
+                  max="200"
+                  value="12"
+                  inputmode="numeric"
+                  aria-label="Layer 2 columns value"
+                />
+              </div>
+              <input
+                id="l2-cols-slider"
+                class="range"
+                type="range"
+                min="1"
+                max="200"
+                value="12"
+                aria-valuemin="1"
+                aria-valuemax="200"
+                aria-label="Layer 2 columns slider"
+              />
+            </div>
+
+            <h3 class="control-section__subtitle">Shuffle</h3>
+            <div class="field">
+              <label class="field-label" for="l2-seed">Seed</label>
+              <div class="seed-row">
+                <input
+                  id="l2-seed"
+                  type="number"
+                  value="2"
+                  step="1"
+                  class="input-num input-num--grow"
+                />
+                <button type="button" id="l2-seed-random" class="btn btn--ghost" title="Random seed">
+                  Random
+                </button>
+              </div>
+            </div>
+            <div class="slider-field">
+              <div class="slider-field__row">
+                <label class="slider-field__label" for="l2-shuffle-blend">Shuffle amount</label>
+                <span id="l2-shuffle-blend-readout" class="blend-readout" aria-live="polite">100%</span>
+              </div>
+              <input
+                id="l2-shuffle-blend"
+                class="range"
+                type="range"
+                min="0"
+                max="100"
+                value="100"
+                step="1"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-valuenow="100"
+                aria-label="Layer 2 shuffle amount"
+              />
+            </div>
+          </div>
+        </section>
+
         <div class="actions">
           <button type="button" id="download" class="btn btn--primary" disabled>
             Download PNG
           </button>
         </div>
 
-        <section class="meta" id="meta" aria-live="polite">
-          <p class="meta__line" id="meta-status">Load an image to begin.</p>
-          <p class="meta__line meta__line--dim" id="meta-dims"></p>
-        </section>
       </aside>
 
       <main class="preview" id="preview-drop-zone">
