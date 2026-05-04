@@ -6,6 +6,8 @@
   const MAX_GRID = 200;
   const MIN_GRID = 1;
   const PREVIEW_MAX_EDGE = 1400;
+  const MIN_VIEW_ZOOM = 0.2;
+  const MAX_VIEW_ZOOM = 6;
   /** ~80% black neutral surround (#333), matches --canvas-neutral-bg */
   const CANVAS_NEUTRAL_BG = "#333333";
 
@@ -242,6 +244,8 @@
     let dropZone = null;
     /** @type {HTMLCanvasElement | null} */
     let canvasEl = null;
+    /** Preview scale relative to “fit in host” (wheel zoom). */
+    let viewZoom = 1;
 
     const els = {
       imageInput: null,
@@ -384,7 +388,29 @@
           els.layer2Enabled.checked ? "true" : "false"
         );
       setupDropTarget();
+      if (dropZone) {
+        dropZone.addEventListener("wheel", onPreviewWheel, { passive: false });
+      }
       window.addEventListener("paste", onWindowPaste, true);
+    }
+
+    /**
+     * Wheel / pinch zoom on the preview column only (not the sidebar).
+     * @param {WheelEvent} e
+     */
+    function onPreviewWheel(e) {
+      if (!sourceImg || !dropZone) return;
+      e.preventDefault();
+      const dy = e.deltaY;
+      const scale = e.ctrlKey ? 0.008 : 0.0022;
+      const factor = Math.exp(-dy * scale);
+      const next = Math.min(
+        MAX_VIEW_ZOOM,
+        Math.max(MIN_VIEW_ZOOM, viewZoom * factor)
+      );
+      if (Math.abs(next - viewZoom) < 1e-6) return;
+      viewZoom = next;
+      render();
     }
 
     function readShuffleBlendT() {
@@ -868,6 +894,7 @@
      * @param {File} file
      */
     function loadFile(file) {
+      viewZoom = 1;
       els.download.disabled = true;
       revokeObjectUrl();
       if (els.uploadZoneThumb) els.uploadZoneThumb.removeAttribute("src");
@@ -935,11 +962,13 @@
 
     function resizeDisplayToPreview() {
       if (!host || !sourceImg) return;
-      const { w, h } = computePreviewSize(
+      const base = computePreviewSize(
         sourceImg.width,
         sourceImg.height,
         host
       );
+      const w = Math.max(1, Math.round(base.w * viewZoom));
+      const h = Math.max(1, Math.round(base.h * viewZoom));
       p.resizeCanvas(w, h);
     }
 
