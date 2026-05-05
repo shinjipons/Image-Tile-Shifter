@@ -1,42 +1,42 @@
 # Image Tile Shifter
 
-A small static web app that slices an image into a grid, shuffles the tiles with a **seeded** random permutation, and lets you **download** the result as a PNG. Built with [p5.js](https://p5js.org/) (instance mode) so it’s easy to extend (e.g. a second independent shuffle layer later).
+A small web app that slices an image into a grid, shuffles the tiles with a **seeded** random permutation, and lets you **download** the result as a PNG. Built with [p5.js](https://p5js.org/) (instance mode) and [DialKit](https://joshpuckett.me/dialkit) for live parameter controls.
 
 ## Run locally
 
-No build step. From this folder:
-
 ```bash
-# Python 3
-python3 -m http.server 8080
+npm install
+npm run dev
 ```
 
-Then open `http://localhost:8080` in a browser (serving over `file://` can block image loading in some setups).
+Then open the URL Vite prints (usually `http://localhost:5173`).
 
-Or use any static file server (VS Code Live Server, `npx serve`, etc.).
+```bash
+npm run build
+npm run preview
+```
+
+serves the production build.
 
 ## Deploy on Vercel
 
 1. Push this repo to GitHub.
 2. In Vercel: **Add New Project** → import the repo.
-3. Framework: **Other** (or “Other” with no build).
-4. Root directory: repo root; **Build Command**: leave empty; **Output Directory**: `.` (or default static).
-
-Vercel serves `index.html` at `/` automatically.
+3. Framework preset: **Vite** (or **Other** with build `npm run build`, output `dist`).
 
 ## Usage
 
-1. Choose or drop an image.
-2. Set **rows** and **columns** (1–200).
-3. Set **seed** (same seed + dimensions = same shuffle). Use **Random** for a new seed.
-4. **Download PNG** exports at the **original image resolution**.
+1. Choose or drop an image (or paste).
+2. In the DialKit panel: set **rows**, **columns**, **seed**, and **shuffle amount** for layer 1; optionally enable **layer 2** with its own grid and shuffle.
+3. Use **Link rows / columns** in the sidebar (DialKit `SegmentedControl`) for independent, square, or aspect-matched grids when an image is loaded.
+4. **Download PNG** in DialKit exports at the **original image resolution**.
 
 ## Project files
 
-| File        | Role                                      |
-| ----------- | ----------------------------------------- |
-| `index.html` | UI shell + p5.js CDN                      |
-| `styles.css` | Layout and styling                        |
-| `sketch.js`  | Load image, shuffle, preview, export    |
-
-Shuffle logic is centered on `shuffleTiles()` in `sketch.js`: it returns a `p5.Graphics` buffer so a future second pass can run `shuffleTiles(layer1Output, …)` with separate rows/cols/seed.
+| Path | Role |
+| --- | --- |
+| `index.html` | Vite entry (mounts `#root`) |
+| `src/main.jsx` | React bootstrap |
+| `src/App.jsx` | Layout, DialKit + grid link controls, sketch wiring |
+| `src/tileShifterSketch.js` | p5 sketch: load image, shuffle, preview, export |
+| `styles.css` | App shell and preview styling |

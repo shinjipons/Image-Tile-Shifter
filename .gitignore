@@ -13,3 +13,4 @@ Thumbs.db
 
 # Optional local tooling
 node_modules/
+dist/
